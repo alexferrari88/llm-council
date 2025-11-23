@@ -128,6 +128,7 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 ### Port Configuration
 - Backend: 8001 (changed from 8000 to avoid conflict)
 - Frontend: 5173 (Vite default)
+- Docker: 8173 (nginx proxy)
 - Update both `backend/main.py` and `frontend/src/api.js` if changing
 
 ### Markdown Rendering
@@ -149,6 +150,8 @@ Set API keys in `.env` (see `.env.example` for all supported providers):
 2. **CORS Issues**: Frontend must match allowed origins in `main.py` CORS middleware
 3. **Ranking Parse Failures**: If models don't follow format, fallback regex extracts any "Response X" patterns in order
 4. **Missing Metadata**: Metadata is ephemeral (not persisted), only available in API responses
+5. **Docker Rebuilds**: Run `docker compose build` after changing dependencies (pyproject.toml, package.json)
+6. **Docker Data Persistence**: Conversations persist in `llm-council-data` volume, survives container rebuilds
 
 ## Future Enhancement Ideas
 

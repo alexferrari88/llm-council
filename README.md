@@ -18,6 +18,8 @@ This project was 99% vibe coded as a fun Saturday hack because I wanted to explo
 
 ### 1. Install Dependencies
 
+> **Docker users:** Skip to step 2 - dependencies are handled by Docker.
+
 The project uses [uv](https://docs.astral.sh/uv/) for project management.
 
 **Backend:**
@@ -79,9 +81,22 @@ npm run dev
 
 Then open http://localhost:5173 in your browser.
 
+**Option 3: Use Docker**
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:8173 in your browser.
+
+Conversations are persisted in a Docker volume. To rebuild after config changes:
+```bash
+docker compose build
+```
+
 ## Tech Stack
 
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
+- **Backend:** FastAPI (Python 3.10+), async httpx, LiteLLM
 - **Frontend:** React + Vite, react-markdown for rendering
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
+- **Deployment:** Docker + Docker Compose
