@@ -13,6 +13,8 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 **`config.py`**
 - Contains `COUNCIL_MODELS` (list of LiteLLM model identifiers with provider prefixes)
 - Contains `CHAIRMAN_MODEL` (model that synthesizes final answer)
+- Contains `DEFAULT_REASONING_EFFORT` (default: "high") for council models
+- Contains `CHAIRMAN_REASONING_EFFORT` (default: "high") for chairman
 - Uses environment variables for API keys (see `.env.example`)
 - Backend runs on **port 8001** (NOT 8000 - user had another app on 8000)
 
@@ -20,12 +22,16 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 - Uses LiteLLM for multi-provider support
 - `query_model()`: Single async model query via `litellm.acompletion()`
 - `query_models_parallel()`: Parallel queries using `asyncio.gather()`
-- Returns dict with 'content' and optional 'reasoning_details'
+- Returns dict with 'content' and optional 'reasoning_content'
+- Supports `reasoning_effort` parameter ("none", "low", "medium", "high")
+- LiteLLM auto-translates to provider-specific params (thinking_budget, thinking_level, etc.)
 - Graceful degradation: returns None on failure, continues with successful responses
 - Supports any LLM provider: OpenAI, Anthropic, Google, Mistral, OpenRouter, etc.
 
 **`council.py`** - The Core Logic
 - `stage1_collect_responses()`: Parallel queries to all council models
+  - Accepts optional `reasoning_effort` parameter
+  - Returns responses with optional `reasoning_content`
 - `stage2_collect_rankings()`:
   - Anonymizes responses as "Response A, B, C, etc."
   - Creates `label_to_model` mapping for de-anonymization
@@ -33,8 +39,10 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
   - Returns tuple: (rankings_list, label_to_model_dict)
   - Each ranking includes both raw text and `parsed_ranking` list
 - `stage3_synthesize_final()`: Chairman synthesizes from all responses + rankings
+  - Uses `CHAIRMAN_REASONING_EFFORT` by default
 - `parse_ranking_from_text()`: Extracts "FINAL RANKING:" section, handles both numbered lists and plain format
 - `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations
+- `run_full_council()`: Orchestrates all stages, passes `reasoning_effort` through
 
 **`storage.py`**
 - JSON-based conversation storage in `data/conversations/`
@@ -45,6 +53,9 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 **`main.py`**
 - FastAPI app with CORS enabled for localhost:5173 and localhost:3000
 - POST `/api/conversations/{id}/message` returns metadata in addition to stages
+  - Accepts optional `reasoning_effort` in request body
+- POST `/api/conversations/{id}/message/stream` for SSE streaming
+  - Also accepts `reasoning_effort` parameter
 - Metadata includes: label_to_model mapping and aggregate_rankings
 
 ### Frontend Structure (`frontend/src/`)
@@ -137,6 +148,31 @@ All ReactMarkdown components must be wrapped in `<div className="markdown-conten
 ### Model Configuration
 Models are hardcoded in `backend/config.py` using LiteLLM provider prefixes. Chairman can be same or different from council members. The current default is Gemini as chairman per user preference.
 
+### Reasoning Configuration
+Reasoning/thinking is enabled by default at "high" effort level. LiteLLM's `reasoning_effort` parameter supports:
+- `"none"` - Disable reasoning (significant cost savings, up to 96% cheaper)
+- `"low"` - Minimal reasoning
+- `"medium"` - Moderate reasoning
+- `"high"` - Maximum reasoning (default)
+
+LiteLLM auto-translates to provider-specific params:
+- Anthropic → `thinking.budget_tokens`
+- Gemini 2.5 Flash → `thinking_budget`
+- Gemini 3+ → `thinking_level`
+
+**Provider caveats:**
+- Gemini 2.5 Pro cannot disable thinking
+- Some models may not support all effort levels
+
+API usage:
+```json
+POST /api/conversations/{id}/message
+{
+    "content": "Your question",
+    "reasoning_effort": "medium"
+}
+```
+
 ### API Keys
 Set API keys in `.env` (see `.env.example` for all supported providers):
 - `OPENAI_API_KEY` - for OpenAI models
@@ -160,7 +196,8 @@ Set API keys in `.env` (see `.env.example` for all supported providers):
 - Export conversations to markdown/PDF
 - Model performance analytics over time
 - Custom ranking criteria (not just accuracy/insight)
-- Support for reasoning models (o1, etc.) with special handling
+- Frontend UI controls for reasoning effort selection
+- Display reasoning_content in response tabs when present
 
 ## Latest Model Versions by Provider
 
@@ -189,15 +226,15 @@ Use `test_openrouter.py` to verify API connectivity and test different model ide
 ## Data Flow Summary
 
 ```
-User Query
+User Query + optional reasoning_effort
     ↓
-Stage 1: Parallel queries → [individual responses]
+Stage 1: Parallel queries (with reasoning) → [responses + reasoning_content]
     ↓
-Stage 2: Anonymize → Parallel ranking queries → [evaluations + parsed rankings]
+Stage 2: Anonymize → Parallel ranking queries (with reasoning) → [evaluations + parsed rankings]
     ↓
 Aggregate Rankings Calculation → [sorted by avg position]
     ↓
-Stage 3: Chairman synthesis with full context
+Stage 3: Chairman synthesis with full context (with reasoning)
     ↓
 Return: {stage1, stage2, stage3, metadata}
     ↓
