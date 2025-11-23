@@ -21,3 +21,9 @@ CHAIRMAN_MODEL = "gemini/gemini-3-pro-preview"
 
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"
+
+# Reasoning configuration
+# reasoning_effort values: "none", "low", "medium", "high"
+# LiteLLM translates this to provider-specific params (thinking_budget, thinking_level, etc.)
+DEFAULT_REASONING_EFFORT = "high"  # Default for council models
+CHAIRMAN_REASONING_EFFORT = "high"  # Default for chairman model

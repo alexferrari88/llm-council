@@ -1,40 +1,50 @@
 """3-stage LLM Council orchestration."""
 
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
 from .llm_client import query_models_parallel, query_model
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL
+from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, DEFAULT_REASONING_EFFORT, CHAIRMAN_REASONING_EFFORT
 
 
-async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+async def stage1_collect_responses(
+    user_query: str,
+    reasoning_effort: Optional[str] = None
+) -> List[Dict[str, Any]]:
     """
     Stage 1: Collect individual responses from all council models.
 
     Args:
         user_query: The user's question
+        reasoning_effort: Override reasoning effort (defaults to DEFAULT_REASONING_EFFORT)
 
     Returns:
-        List of dicts with 'model' and 'response' keys
+        List of dicts with 'model', 'response', and optional 'reasoning_content' keys
     """
     messages = [{"role": "user", "content": user_query}]
+    effort = reasoning_effort if reasoning_effort is not None else DEFAULT_REASONING_EFFORT
 
     # Query all models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    responses = await query_models_parallel(COUNCIL_MODELS, messages, reasoning_effort=effort)
 
     # Format results
     stage1_results = []
     for model, response in responses.items():
         if response is not None:  # Only include successful responses
-            stage1_results.append({
+            result = {
                 "model": model,
                 "response": response.get('content', '')
-            })
+            }
+            # Include reasoning content if present
+            if 'reasoning_content' in response:
+                result['reasoning_content'] = response['reasoning_content']
+            stage1_results.append(result)
 
     return stage1_results
 
 
 async def stage2_collect_rankings(
     user_query: str,
-    stage1_results: List[Dict[str, Any]]
+    stage1_results: List[Dict[str, Any]],
+    reasoning_effort: Optional[str] = None
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     """
     Stage 2: Each model ranks the anonymized responses.
@@ -42,6 +52,7 @@ async def stage2_collect_rankings(
     Args:
         user_query: The original user query
         stage1_results: Results from Stage 1
+        reasoning_effort: Override reasoning effort (defaults to DEFAULT_REASONING_EFFORT)
 
     Returns:
         Tuple of (rankings list, label_to_model mapping)
@@ -93,9 +104,10 @@ FINAL RANKING:
 Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
+    effort = reasoning_effort if reasoning_effort is not None else DEFAULT_REASONING_EFFORT
 
     # Get rankings from all council models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    responses = await query_models_parallel(COUNCIL_MODELS, messages, reasoning_effort=effort)
 
     # Format results
     stage2_results = []
@@ -103,11 +115,15 @@ Now provide your evaluation and ranking:"""
         if response is not None:
             full_text = response.get('content', '')
             parsed = parse_ranking_from_text(full_text)
-            stage2_results.append({
+            result = {
                 "model": model,
                 "ranking": full_text,
                 "parsed_ranking": parsed
-            })
+            }
+            # Include reasoning content if present
+            if 'reasoning_content' in response:
+                result['reasoning_content'] = response['reasoning_content']
+            stage2_results.append(result)
 
     return stage2_results, label_to_model
 
@@ -115,7 +131,8 @@ Now provide your evaluation and ranking:"""
 async def stage3_synthesize_final(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
-    stage2_results: List[Dict[str, Any]]
+    stage2_results: List[Dict[str, Any]],
+    reasoning_effort: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Stage 3: Chairman synthesizes final response.
@@ -124,9 +141,10 @@ async def stage3_synthesize_final(
         user_query: The original user query
         stage1_results: Individual model responses from Stage 1
         stage2_results: Rankings from Stage 2
+        reasoning_effort: Override reasoning effort (defaults to CHAIRMAN_REASONING_EFFORT)
 
     Returns:
-        Dict with 'model' and 'response' keys
+        Dict with 'model', 'response', and optional 'reasoning_content' keys
     """
     # Build comprehensive context for chairman
     stage1_text = "\n\n".join([
@@ -157,9 +175,10 @@ Your task as Chairman is to synthesize all of this information into a single, co
 Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
 
     messages = [{"role": "user", "content": chairman_prompt}]
+    effort = reasoning_effort if reasoning_effort is not None else CHAIRMAN_REASONING_EFFORT
 
     # Query the chairman model
-    response = await query_model(CHAIRMAN_MODEL, messages)
+    response = await query_model(CHAIRMAN_MODEL, messages, reasoning_effort=effort)
 
     if response is None:
         # Fallback if chairman fails
@@ -168,10 +187,15 @@ Provide a clear, well-reasoned final answer that represents the council's collec
             "response": "Error: Unable to generate final synthesis."
         }
 
-    return {
+    result = {
         "model": CHAIRMAN_MODEL,
         "response": response.get('content', '')
     }
+    # Include reasoning content if present
+    if 'reasoning_content' in response:
+        result['reasoning_content'] = response['reasoning_content']
+
+    return result
 
 
 def parse_ranking_from_text(ranking_text: str) -> List[str]:
@@ -293,18 +317,22 @@ Title:"""
     return title
 
 
-async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
+async def run_full_council(
+    user_query: str,
+    reasoning_effort: Optional[str] = None
+) -> Tuple[List, List, Dict, Dict]:
     """
     Run the complete 3-stage council process.
 
     Args:
         user_query: The user's question
+        reasoning_effort: Override reasoning effort for all stages (None uses defaults)
 
     Returns:
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
     """
     # Stage 1: Collect individual responses
-    stage1_results = await stage1_collect_responses(user_query)
+    stage1_results = await stage1_collect_responses(user_query, reasoning_effort=reasoning_effort)
 
     # If no models responded successfully, return error
     if not stage1_results:
@@ -314,7 +342,9 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
         }, {}
 
     # Stage 2: Collect rankings
-    stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results)
+    stage2_results, label_to_model = await stage2_collect_rankings(
+        user_query, stage1_results, reasoning_effort=reasoning_effort
+    )
 
     # Calculate aggregate rankings
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
@@ -323,7 +353,8 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     stage3_result = await stage3_synthesize_final(
         user_query,
         stage1_results,
-        stage2_results
+        stage2_results,
+        reasoning_effort=reasoning_effort
     )
 
     # Prepare metadata
