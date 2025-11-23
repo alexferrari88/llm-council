@@ -115,9 +115,9 @@ This strict format allows reliable parsing while still getting thoughtful evalua
 
 ### LiteLLM Model Naming
 Models use LiteLLM provider prefixes to route to the correct API:
-- `openai/gpt-4o` - direct OpenAI
+- `openai/gpt-5.1` - direct OpenAI
 - `anthropic/claude-3-5-sonnet-20241022` - direct Anthropic
-- `gemini/gemini-1.5-pro` - direct Google
+- `gemini/gemini-3-pro-preview` - direct Google
 - `openrouter/meta-llama/llama-3-70b-instruct` - via OpenRouter
 
 See [LiteLLM docs](https://docs.litellm.ai/docs/providers) for all supported providers.
@@ -161,6 +161,26 @@ Set API keys in `.env` (see `.env.example` for all supported providers):
 - Model performance analytics over time
 - Custom ranking criteria (not just accuracy/insight)
 - Support for reasoning models (o1, etc.) with special handling
+
+## Latest Model Versions by Provider
+
+Reference for the most current model identifiers (updated November 2025):
+
+### OpenAI
+- `openai/gpt-5.1`
+
+### Google Gemini
+
+- `gemini/gemini-2.5-flash`
+- `gemini/gemini-2.5-flash-lite`
+- `gemini/gemini-2.5-pro`
+- `gemini/gemini-3.0-pro-preview`
+
+### Anthropic
+- `anthropic/claude-4.5-sonnet`
+
+### xAI
+- `xai/grok-4-1-fast-reasoning`
 
 ## Testing Notes
 

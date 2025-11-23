@@ -16,7 +16,7 @@ async def query_model(
 
     Args:
         model: LiteLLM model identifier with provider prefix
-               (e.g., "openai/gpt-4o", "anthropic/claude-3-5-sonnet-20241022")
+               (e.g., "openai/gpt-5.1", "anthropic/claude-3-5-sonnet-20241022")
         messages: List of message dicts with 'role' and 'content'
         timeout: Request timeout in seconds
 
