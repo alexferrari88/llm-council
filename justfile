@@ -16,6 +16,10 @@ up:
 down:
     docker compose down
 
+# Stop the application and remove volumes
+down-v:
+    docker compose down -v
+
 # View logs
 logs:
     docker compose logs -f
@@ -43,7 +47,7 @@ rebuild:
 # Install all dependencies locally
 install:
     uv sync
-    cd frontend && npm install
+    cd frontend && pnpm install
 
 # Start both backend and frontend locally
 dev-local:
@@ -56,7 +60,7 @@ dev-local:
     BACKEND_PID=$!
     sleep 2
     echo "Starting frontend on http://localhost:5173..."
-    cd frontend && npm run dev &
+    cd frontend && pnpm run dev &
     FRONTEND_PID=$!
     echo ""
     echo "✓ LLM Council is running!"
@@ -73,15 +77,15 @@ backend:
 
 # Start frontend only (local)
 frontend:
-    cd frontend && npm run dev
+    cd frontend && pnpm run dev
 
 # Build frontend for production (local)
 build-frontend:
-    cd frontend && npm run build
+    cd frontend && pnpm run build
 
 # Preview production build (local)
 preview:
-    cd frontend && npm run preview
+    cd frontend && pnpm run preview
 
 # =============================================================================
 # Code Quality
@@ -89,7 +93,7 @@ preview:
 
 # Lint frontend
 lint:
-    cd frontend && npm run lint
+    cd frontend && pnpm run lint
 
 # Format Python code with ruff
 format:

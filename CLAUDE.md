@@ -60,6 +60,8 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 
 ### Frontend Structure (`frontend/src/`)
 
+**Package Manager**: Uses **pnpm** (not npm) for faster installs and better disk efficiency.
+
 **`App.jsx`**
 - Main orchestration: manages conversations list and current conversation
 - Handles message sending and metadata storage
