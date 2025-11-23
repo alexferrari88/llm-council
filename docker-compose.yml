@@ -7,8 +7,8 @@ services:
       - .env
     volumes:
       - llm-council-data:/app/data
-    expose:
-      - "8001"
+    ports:
+      - "8001:8001"
     restart: unless-stopped
 
   frontend:
