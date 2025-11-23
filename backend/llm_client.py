@@ -1,8 +1,9 @@
-"""OpenRouter API client for making LLM requests."""
+"""LiteLLM client for making LLM requests to any provider."""
 
-import httpx
+import asyncio
 from typing import List, Dict, Any, Optional
-from .config import OPENROUTER_API_KEY, OPENROUTER_API_URL
+from litellm import acompletion
+import openai
 
 
 async def query_model(
@@ -11,43 +12,40 @@ async def query_model(
     timeout: float = 120.0
 ) -> Optional[Dict[str, Any]]:
     """
-    Query a single model via OpenRouter API.
+    Query a single model via LiteLLM.
 
     Args:
-        model: OpenRouter model identifier (e.g., "openai/gpt-4o")
+        model: LiteLLM model identifier with provider prefix
+               (e.g., "openai/gpt-4o", "anthropic/claude-3-5-sonnet-20241022")
         messages: List of message dicts with 'role' and 'content'
         timeout: Request timeout in seconds
 
     Returns:
         Response dict with 'content' and optional 'reasoning_details', or None if failed
     """
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json",
-    }
-
-    payload = {
-        "model": model,
-        "messages": messages,
-    }
-
     try:
-        async with httpx.AsyncClient(timeout=timeout) as client:
-            response = await client.post(
-                OPENROUTER_API_URL,
-                headers=headers,
-                json=payload
-            )
-            response.raise_for_status()
+        response = await acompletion(
+            model=model,
+            messages=messages,
+            timeout=timeout
+        )
 
-            data = response.json()
-            message = data['choices'][0]['message']
+        message = response.choices[0].message
 
-            return {
-                'content': message.get('content'),
-                'reasoning_details': message.get('reasoning_details')
-            }
+        return {
+            'content': message.content,
+            'reasoning_details': getattr(message, 'reasoning_details', None)
+        }
 
+    except openai.AuthenticationError as e:
+        print(f"Authentication error for {model}: {e}")
+        return None
+    except openai.RateLimitError as e:
+        print(f"Rate limit error for {model}: {e}")
+        return None
+    except openai.APITimeoutError as e:
+        print(f"Timeout error for {model}: {e}")
+        return None
     except Exception as e:
         print(f"Error querying model {model}: {e}")
         return None
@@ -61,14 +59,12 @@ async def query_models_parallel(
     Query multiple models in parallel.
 
     Args:
-        models: List of OpenRouter model identifiers
+        models: List of LiteLLM model identifiers
         messages: List of message dicts to send to each model
 
     Returns:
         Dict mapping model identifier to response dict (or None if failed)
     """
-    import asyncio
-
     # Create tasks for all models
     tasks = [query_model(model, messages) for model in models]
 

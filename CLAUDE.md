@@ -11,16 +11,18 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 ### Backend Structure (`backend/`)
 
 **`config.py`**
-- Contains `COUNCIL_MODELS` (list of OpenRouter model identifiers)
+- Contains `COUNCIL_MODELS` (list of LiteLLM model identifiers with provider prefixes)
 - Contains `CHAIRMAN_MODEL` (model that synthesizes final answer)
-- Uses environment variable `OPENROUTER_API_KEY` from `.env`
+- Uses environment variables for API keys (see `.env.example`)
 - Backend runs on **port 8001** (NOT 8000 - user had another app on 8000)
 
-**`openrouter.py`**
-- `query_model()`: Single async model query
+**`llm_client.py`**
+- Uses LiteLLM for multi-provider support
+- `query_model()`: Single async model query via `litellm.acompletion()`
 - `query_models_parallel()`: Parallel queries using `asyncio.gather()`
 - Returns dict with 'content' and optional 'reasoning_details'
 - Graceful degradation: returns None on failure, continues with successful responses
+- Supports any LLM provider: OpenAI, Anthropic, Google, Mistral, OpenRouter, etc.
 
 **`council.py`** - The Core Logic
 - `stage1_collect_responses()`: Parallel queries to all council models
@@ -111,6 +113,15 @@ This strict format allows reliable parsing while still getting thoughtful evalua
 
 ## Important Implementation Details
 
+### LiteLLM Model Naming
+Models use LiteLLM provider prefixes to route to the correct API:
+- `openai/gpt-4o` - direct OpenAI
+- `anthropic/claude-3-5-sonnet-20241022` - direct Anthropic
+- `gemini/gemini-1.5-pro` - direct Google
+- `openrouter/meta-llama/llama-3-70b-instruct` - via OpenRouter
+
+See [LiteLLM docs](https://docs.litellm.ai/docs/providers) for all supported providers.
+
 ### Relative Imports
 All backend modules use relative imports (e.g., `from .config import ...`) not absolute imports. This is critical for Python's module system to work correctly when running as `python -m backend.main`.
 
@@ -123,7 +134,14 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
 
 ### Model Configuration
-Models are hardcoded in `backend/config.py`. Chairman can be same or different from council members. The current default is Gemini as chairman per user preference.
+Models are hardcoded in `backend/config.py` using LiteLLM provider prefixes. Chairman can be same or different from council members. The current default is Gemini as chairman per user preference.
+
+### API Keys
+Set API keys in `.env` (see `.env.example` for all supported providers):
+- `OPENAI_API_KEY` - for OpenAI models
+- `ANTHROPIC_API_KEY` - for Anthropic models
+- `GEMINI_API_KEY` - for Google Gemini models
+- `OPENROUTER_API_KEY` - for OpenRouter models
 
 ## Common Gotchas
 

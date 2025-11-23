@@ -5,22 +5,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
-
-# Council members - list of OpenRouter model identifiers
+# Council members - list of model identifiers using LiteLLM provider prefixes
+# Examples:
+#   - "openai/gpt-4o" - direct OpenAI
+#   - "anthropic/claude-3-5-sonnet-20241022" - direct Anthropic
+#   - "gemini/gemini-1.5-pro" - direct Google
+#   - "openrouter/openai/gpt-4o" - via OpenRouter
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
+    "openai/gpt-4o",
+    "gemini/gemini-1.5-pro",
+    "anthropic/claude-3-5-sonnet-20241022",
+    "openrouter/x-ai/grok-2",
 ]
 
 # Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
-
-# OpenRouter API endpoint
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+CHAIRMAN_MODEL = "gemini/gemini-1.5-pro"
 
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"
